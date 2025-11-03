@@ -119,6 +119,58 @@ void UStDbConnectSubsystem::HandleDisconnect(UDbConnection* InConn, const FStrin
 void UStDbConnectSubsystem::HandleSubscriptionApplied(FSubscriptionEventContext& Context)
 {
 	UE_LOG(LogTemp, Log, TEXT("Subscription applied!"));
+	
+	if (!Conn || !Conn->Db)
+	{
+		UE_LOG(LogTemp, Warning, TEXT("No connection or database available"));
+		return;
+	}
+
+	// Find our player in the Players table by matching LocalIdentity
+	uint32 LocalPlayerId = 0;
+	bool bFoundPlayer = false;
+	
+	for (const auto& Player : Conn->Db->Players->Rows)
+	{
+		if (Player.Identity == LocalIdentity)
+		{
+			LocalPlayerId = Player.PlayerId;
+			bFoundPlayer = true;
+			UE_LOG(LogTemp, Log, TEXT("Found local player with PlayerId: %d"), LocalPlayerId);
+			break;
+		}
+	}
+
+	if (!bFoundPlayer)
+	{
+		UE_LOG(LogTemp, Warning, TEXT("Local player not found in Players table"));
+		return;
+	}
+
+	// Find player_characters for this player
+	for (const auto& PlayerChar : Conn->Db->PlayerCharacters->Rows)
+	{
+		if (PlayerChar.PlayerId == LocalPlayerId)
+		{
+			UE_LOG(LogTemp, Log, TEXT("Found PlayerCharacter: CharacterId=%d, NeedsSpawn=%d"), 
+				PlayerChar.CharacterId, PlayerChar.NeedsSpawn);
+			
+			// Check if this character needs to spawn
+			if (PlayerChar.NeedsSpawn)
+			{
+				UE_LOG(LogTemp, Log, TEXT("Character needs spawn. Loading world and spawning pawn..."));
+				// TODO: Implement world loading and pawn spawning
+				// For now, we'll just log that we detected the need to spawn
+				// The actual implementation will require:
+				// 1. Load level Lvl_World
+				// 2. Spawn pawn at PlayerChar.Transform
+				// 3. Possess the pawn
+				// 4. Call Conn->Reducers->PlayerSpawned(PlayerChar.CharacterId)
+			}
+			
+			break; // Found our character, no need to continue
+		}
+	}
 }
 
 void UStDbConnectSubsystem::Tick(float DeltaSeconds)

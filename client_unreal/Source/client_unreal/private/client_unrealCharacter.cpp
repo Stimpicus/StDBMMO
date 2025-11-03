@@ -11,6 +11,8 @@
 #include "EnhancedInputSubsystems.h"
 #include "InputActionValue.h"
 #include "client_unreal.h"
+#include "StDbConnectSubsystem.h"
+#include "ModuleBindings/SpacetimeDBClient.g.h"
 
 Aclient_unrealCharacter::Aclient_unrealCharacter()
 {
@@ -107,6 +109,12 @@ void Aclient_unrealCharacter::DoMove(float Right, float Forward)
 		// add movement 
 		AddMovementInput(ForwardDirection, Forward);
 		AddMovementInput(RightDirection, Right);
+		
+		// Send transform update to server if we're locally controlled
+		if (IsLocallyControlled())
+		{
+			SendTransformToServer();
+		}
 	}
 }
 
@@ -117,6 +125,12 @@ void Aclient_unrealCharacter::DoLook(float Yaw, float Pitch)
 		// add yaw and pitch input to controller
 		AddControllerYawInput(Yaw);
 		AddControllerPitchInput(Pitch);
+		
+		// Send transform update to server if we're locally controlled
+		if (IsLocallyControlled())
+		{
+			SendTransformToServer();
+		}
 	}
 }
 
@@ -130,4 +144,36 @@ void Aclient_unrealCharacter::DoJumpEnd()
 {
 	// signal the character to stop jumping
 	StopJumping();
+}
+
+void Aclient_unrealCharacter::SendTransformToServer()
+{
+	// Get the game instance and subsystem
+	UGameInstance* GameInstance = GetGameInstance();
+	if (!GameInstance)
+	{
+		return;
+	}
+
+	UStDbConnectSubsystem* ConnectSubsystem = GameInstance->GetSubsystem<UStDbConnectSubsystem>();
+	if (!ConnectSubsystem || !ConnectSubsystem->Conn || !ConnectSubsystem->Conn->Reducers)
+	{
+		return;
+	}
+
+	// Get current location and rotation
+	FVector Location = GetActorLocation();
+	FRotator Rotation = GetActorRotation();
+
+	// Create transform type for server
+	FTransformType Transform;
+	Transform.X = Location.X;
+	Transform.Y = Location.Y;
+	Transform.Z = Location.Z;
+	Transform.Yaw = Rotation.Yaw;
+	Transform.Pitch = Rotation.Pitch;
+	Transform.Roll = Rotation.Roll;
+
+	// Send to server
+	ConnectSubsystem->Conn->Reducers->UpdatePlayerInput(Transform);
 }

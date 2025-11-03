@@ -85,6 +85,10 @@ public:
 	UFUNCTION(BlueprintCallable, Category="Input")
 	virtual void DoJumpEnd();
 
+private:
+	/** Send current transform to server */
+	void SendTransformToServer();
+
 public:
 
 	/** Returns CameraBoom subobject **/
