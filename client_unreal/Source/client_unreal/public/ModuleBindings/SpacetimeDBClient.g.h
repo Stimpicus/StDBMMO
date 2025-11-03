@@ -32,7 +32,6 @@ class USubscriptionBuilder;
 class USubscriptionHandle;
 
 /** Forward declaration for tables */
-class UConfigTable;
 class UEntityTable;
 class UMoveAllPlayersTimerTable;
 class UPlayerCharacterTable;
@@ -692,25 +691,22 @@ public:
     void Initialize();
 
     UPROPERTY(BlueprintReadOnly, Category="SpacetimeDB")
-    UConfigTable* Config;
+    UPlayerCharacterTable* OfflinePlayerCharacters;
 
     UPROPERTY(BlueprintReadOnly, Category="SpacetimeDB")
-    UPlayerTable* OfflinePlayers;
-
-    UPROPERTY(BlueprintReadOnly, Category="SpacetimeDB")
-    UMoveAllPlayersTimerTable* MoveAllPlayersTimer;
+    UPlayerCharacterTable* PlayerCharacters;
 
     UPROPERTY(BlueprintReadOnly, Category="SpacetimeDB")
     UEntityTable* Entities;
 
     UPROPERTY(BlueprintReadOnly, Category="SpacetimeDB")
+    UMoveAllPlayersTimerTable* MoveAllPlayersTimer;
+
+    UPROPERTY(BlueprintReadOnly, Category="SpacetimeDB")
+    UPlayerTable* OfflinePlayers;
+
+    UPROPERTY(BlueprintReadOnly, Category="SpacetimeDB")
     UPlayerTable* Players;
-
-    UPROPERTY(BlueprintReadOnly, Category="SpacetimeDB")
-    UPlayerCharacterTable* OfflinePlayerCharacters;
-
-    UPROPERTY(BlueprintReadOnly, Category="SpacetimeDB")
-    UPlayerCharacterTable* PlayerCharacters;
 
 };
 

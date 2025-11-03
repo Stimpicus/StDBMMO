@@ -4,13 +4,12 @@
 #include "ModuleBindings/SpacetimeDBClient.g.h"
 #include "DBCache/WithBsatn.h"
 #include "BSATN/UEBSATNHelpers.h"
-#include "ModuleBindings/Tables/ConfigTable.g.h"
-#include "ModuleBindings/Tables/PlayerTable.g.h"
-#include "ModuleBindings/Tables/MoveAllPlayersTimerTable.g.h"
+#include "ModuleBindings/Tables/PlayerCharacterTable.g.h"
+#include "ModuleBindings/Tables/PlayerCharacterTable.g.h"
 #include "ModuleBindings/Tables/EntityTable.g.h"
+#include "ModuleBindings/Tables/MoveAllPlayersTimerTable.g.h"
 #include "ModuleBindings/Tables/PlayerTable.g.h"
-#include "ModuleBindings/Tables/PlayerCharacterTable.g.h"
-#include "ModuleBindings/Tables/PlayerCharacterTable.g.h"
+#include "ModuleBindings/Tables/PlayerTable.g.h"
 
 static FReducer DecodeReducer(const FReducerEvent& Event)
 {
@@ -66,13 +65,12 @@ UDbConnection::UDbConnection(const FObjectInitializer& ObjectInitializer) : Supe
 	Reducers->SetCallReducerFlags = SetReducerFlags;
 	Reducers->Conn = this;
 
-	RegisterTable<FConfigType, UConfigTable, FEventContext>(TEXT("config"), Db->Config);
-	RegisterTable<FPlayerType, UPlayerTable, FEventContext>(TEXT("offline_players"), Db->OfflinePlayers);
-	RegisterTable<FMoveAllPlayersTimerType, UMoveAllPlayersTimerTable, FEventContext>(TEXT("move_all_players_timer"), Db->MoveAllPlayersTimer);
-	RegisterTable<FEntityType, UEntityTable, FEventContext>(TEXT("entities"), Db->Entities);
-	RegisterTable<FPlayerType, UPlayerTable, FEventContext>(TEXT("players"), Db->Players);
 	RegisterTable<FPlayerCharacterType, UPlayerCharacterTable, FEventContext>(TEXT("offline_player_characters"), Db->OfflinePlayerCharacters);
 	RegisterTable<FPlayerCharacterType, UPlayerCharacterTable, FEventContext>(TEXT("player_characters"), Db->PlayerCharacters);
+	RegisterTable<FEntityType, UEntityTable, FEventContext>(TEXT("entities"), Db->Entities);
+	RegisterTable<FMoveAllPlayersTimerType, UMoveAllPlayersTimerTable, FEventContext>(TEXT("move_all_players_timer"), Db->MoveAllPlayersTimer);
+	RegisterTable<FPlayerType, UPlayerTable, FEventContext>(TEXT("offline_players"), Db->OfflinePlayers);
+	RegisterTable<FPlayerType, UPlayerTable, FEventContext>(TEXT("players"), Db->Players);
 }
 
 FContextBase::FContextBase(UDbConnection* InConn)
@@ -107,23 +105,21 @@ void URemoteTables::Initialize()
 {
 
 	/** Creating tables */
-	Config = NewObject<UConfigTable>(this);
-	OfflinePlayers = NewObject<UPlayerTable>(this);
-	MoveAllPlayersTimer = NewObject<UMoveAllPlayersTimerTable>(this);
-	Entities = NewObject<UEntityTable>(this);
-	Players = NewObject<UPlayerTable>(this);
 	OfflinePlayerCharacters = NewObject<UPlayerCharacterTable>(this);
 	PlayerCharacters = NewObject<UPlayerCharacterTable>(this);
+	Entities = NewObject<UEntityTable>(this);
+	MoveAllPlayersTimer = NewObject<UMoveAllPlayersTimerTable>(this);
+	OfflinePlayers = NewObject<UPlayerTable>(this);
+	Players = NewObject<UPlayerTable>(this);
 	/**/
 
 	/** Initialization */
-	Config->PostInitialize();
-	OfflinePlayers->PostInitialize();
-	MoveAllPlayersTimer->PostInitialize();
-	Entities->PostInitialize();
-	Players->PostInitialize();
 	OfflinePlayerCharacters->PostInitialize();
 	PlayerCharacters->PostInitialize();
+	Entities->PostInitialize();
+	MoveAllPlayersTimer->PostInitialize();
+	OfflinePlayers->PostInitialize();
+	Players->PostInitialize();
 	/**/
 }
 
