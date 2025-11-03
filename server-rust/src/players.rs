@@ -31,6 +31,7 @@ pub struct PlayerCharacter {
     pub entity_id: u32,
     pub display_name: String,
     pub transform: Transform,
+    pub needs_spawn: bool,
 }
 
 /// Spawn helpers and reducers
@@ -66,6 +67,7 @@ fn spawn_player_character_at(
         entity_id: entity.entity_id,
         display_name: String::new(),
         transform: position,
+        needs_spawn: true,
     })?;
 
     Ok(entity)
@@ -119,5 +121,20 @@ pub fn update_player_input(ctx: &ReducerContext, new_transform: Transform) -> Re
         ctx.db.player_characters().character_id().update(pc);
     }
 
+    Ok(())
+}
+
+#[spacetimedb::reducer]
+pub fn player_spawned(ctx: &ReducerContext, character_id: u32) -> Result<(), String> {
+    let mut pc = ctx
+        .db
+        .player_characters()
+        .character_id()
+        .find(&character_id)
+        .ok_or("Character not found")?;
+    
+    pc.needs_spawn = false;
+    ctx.db.player_characters().character_id().update(pc);
+    
     Ok(())
 }
