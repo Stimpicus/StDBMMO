@@ -48,6 +48,10 @@ public:
 	UPROPERTY(EditAnywhere, Category = "MMORPG|Gameplay")
 	TSoftClassPtr<APawn> PlayerPawnClass = TSoftClassPtr<APawn>(FSoftObjectPath(TEXT("/Game/Blueprints/BP_PlayerPawn.BP_PlayerPawn_C")));
 
+	// Level to load when spawning player character
+	UPROPERTY(EditAnywhere, Category = "MMORPG|Gameplay")
+	FName WorldLevelName = TEXT("Lvl_World");
+
 	UPROPERTY(BlueprintReadOnly, Category = "MMORPG|Connection")
 	FSpacetimeDBIdentity LocalIdentity;
 

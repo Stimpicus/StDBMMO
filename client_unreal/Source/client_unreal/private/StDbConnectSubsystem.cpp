@@ -170,9 +170,9 @@ void UStDbConnectSubsystem::HandleSubscriptionApplied(FSubscriptionEventContext&
 			UE_LOG(LogTemp, Log, TEXT("HandleSubscriptionApplied: Character %d needs spawning"), Character.CharacterId);
 			
 			// Load the world level
-			UGameplayStatics::OpenLevel(this, FName(TEXT("Lvl_World")));
+			UGameplayStatics::OpenLevel(this, WorldLevelName);
 			
-			// Get the player controller
+			// Get the player controller (using index 0 for primary local player)
 			APlayerController* PC = UGameplayStatics::GetPlayerController(this, 0);
 			if (!PC)
 			{

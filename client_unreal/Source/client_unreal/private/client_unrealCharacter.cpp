@@ -112,6 +112,7 @@ void Aclient_unrealCharacter::DoMove(float Right, float Forward)
 		AddMovementInput(RightDirection, Right);
 
 		// Send UpdatePlayerInput to server
+		// Note: This is called on every input event. Consider adding throttling if network traffic becomes an issue.
 		SendTransformToServer();
 	}
 }
@@ -125,6 +126,7 @@ void Aclient_unrealCharacter::DoLook(float Yaw, float Pitch)
 		AddControllerPitchInput(Pitch);
 
 		// Send UpdatePlayerInput to server
+		// Note: This is called on every input event. Consider adding throttling if network traffic becomes an issue.
 		SendTransformToServer();
 	}
 }
