@@ -44,6 +44,10 @@ public:
 	UPROPERTY(EditAnywhere, Category = "MMORPG|Connection")
 	FString TokenFilePath = TEXT(".spacetime_mmorpg");
 
+	// Pawn class to spawn when player character needs spawning
+	UPROPERTY(EditAnywhere, Category = "MMORPG|Gameplay")
+	TSoftClassPtr<APawn> PlayerPawnClass = TSoftClassPtr<APawn>(FSoftObjectPath(TEXT("/Game/Blueprints/BP_PlayerPawn.BP_PlayerPawn_C")));
+
 	UPROPERTY(BlueprintReadOnly, Category = "MMORPG|Connection")
 	FSpacetimeDBIdentity LocalIdentity;
 
