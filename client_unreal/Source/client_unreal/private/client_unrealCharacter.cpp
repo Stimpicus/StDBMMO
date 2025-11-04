@@ -11,6 +11,9 @@
 #include "EnhancedInputSubsystems.h"
 #include "InputActionValue.h"
 #include "client_unreal.h"
+#include "StDbConnectSubsystem.h"
+#include "Kismet/GameplayStatics.h"
+#include "ModuleBindings/SpacetimeDBClient.g.h"
 
 Aclient_unrealCharacter::Aclient_unrealCharacter()
 {
@@ -107,6 +110,10 @@ void Aclient_unrealCharacter::DoMove(float Right, float Forward)
 		// add movement 
 		AddMovementInput(ForwardDirection, Forward);
 		AddMovementInput(RightDirection, Right);
+
+		// Send UpdatePlayerInput to server
+		// Note: This is called on every input event. Consider adding throttling if network traffic becomes an issue.
+		SendTransformToServer();
 	}
 }
 
@@ -117,7 +124,42 @@ void Aclient_unrealCharacter::DoLook(float Yaw, float Pitch)
 		// add yaw and pitch input to controller
 		AddControllerYawInput(Yaw);
 		AddControllerPitchInput(Pitch);
+
+		// Send UpdatePlayerInput to server
+		// Note: This is called on every input event. Consider adding throttling if network traffic becomes an issue.
+		SendTransformToServer();
 	}
+}
+
+void Aclient_unrealCharacter::SendTransformToServer()
+{
+	// Get the connection subsystem
+	UGameInstance* GameInstance = GetGameInstance();
+	if (!GameInstance)
+	{
+		return;
+	}
+
+	UStDbConnectSubsystem* ConnSubsystem = GameInstance->GetSubsystem<UStDbConnectSubsystem>();
+	if (!ConnSubsystem || !ConnSubsystem->Conn || !ConnSubsystem->Conn->IsActive())
+	{
+		return;
+	}
+
+	// Build FTransformType from actor transform
+	FVector Location = GetActorLocation();
+	FRotator Rotation = GetActorRotation();
+
+	FTransformType TransformData;
+	TransformData.X = Location.X;
+	TransformData.Y = Location.Y;
+	TransformData.Z = Location.Z;
+	TransformData.Yaw = Rotation.Yaw;
+	TransformData.Pitch = Rotation.Pitch;
+	TransformData.Roll = Rotation.Roll;
+
+	// Call UpdatePlayerInput reducer
+	ConnSubsystem->Conn->Reducers->UpdatePlayerInput(TransformData);
 }
 
 void Aclient_unrealCharacter::DoJumpStart()

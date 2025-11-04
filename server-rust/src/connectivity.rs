@@ -9,6 +9,9 @@ use crate::players::offline_player_characters;
 use crate::entities::entities;
 use crate::timers::move_all_players_timer;
 
+// Import spawn helper from players module
+use crate::players::spawn_player_initial_player_character;
+
 /// init reducer: create timer row
 #[spacetimedb::reducer(init)]
 pub fn init(ctx: &ReducerContext) -> Result<(), String> {
@@ -36,11 +39,17 @@ pub fn connect(ctx: &ReducerContext) -> Result<(), String> {
         }
     } else {
         // create a new blank player row
-        ctx.db.players().try_insert(crate::players::Player {
+        let player = ctx.db.players().try_insert(crate::players::Player {
             identity: ctx.sender.clone(),
             player_id: 0,
             display_name: String::new(),
         })?;
+
+        // create initial PlayerCharacter if no existing characters
+        let existing_chars: Vec<_> = ctx.db.player_characters().player_id().filter(&player.player_id).collect();
+        if existing_chars.is_empty() {
+            spawn_player_initial_player_character(ctx, player.player_id)?;
+        }
     }
     Ok(())
 }
