@@ -27,9 +27,12 @@ struct CLIENT_UNREAL_API FPlayerCharacterType
     UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "SpacetimeDB")
     FTransformType Transform;
 
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "SpacetimeDB")
+    bool NeedsSpawn = false;
+
     FORCEINLINE bool operator==(const FPlayerCharacterType& Other) const
     {
-        return CharacterId == Other.CharacterId && PlayerId == Other.PlayerId && EntityId == Other.EntityId && DisplayName == Other.DisplayName && Transform == Other.Transform;
+        return CharacterId == Other.CharacterId && PlayerId == Other.PlayerId && EntityId == Other.EntityId && DisplayName == Other.DisplayName && Transform == Other.Transform && NeedsSpawn == Other.NeedsSpawn;
     }
 
     FORCEINLINE bool operator!=(const FPlayerCharacterType& Other) const
@@ -51,6 +54,7 @@ FORCEINLINE uint32 GetTypeHash(const FPlayerCharacterType& PlayerCharacterType)
     Hash = HashCombine(Hash, GetTypeHash(PlayerCharacterType.EntityId));
     Hash = HashCombine(Hash, GetTypeHash(PlayerCharacterType.DisplayName));
     Hash = HashCombine(Hash, GetTypeHash(PlayerCharacterType.Transform));
+    Hash = HashCombine(Hash, GetTypeHash(PlayerCharacterType.NeedsSpawn));
     return Hash;
 }
 
@@ -58,5 +62,5 @@ namespace UE::SpacetimeDB
 {
     UE_SPACETIMEDB_ENABLE_TARRAY(FPlayerCharacterType);
 
-    UE_SPACETIMEDB_STRUCT(FPlayerCharacterType, CharacterId, PlayerId, EntityId, DisplayName, Transform);
+    UE_SPACETIMEDB_STRUCT(FPlayerCharacterType, CharacterId, PlayerId, EntityId, DisplayName, Transform, NeedsSpawn);
 }

@@ -264,6 +264,35 @@ bool URemoteReducers::InvokeMoveAllPlayers(const FReducerEventContext& Context, 
     return true;
 }
 
+void URemoteReducers::PlayerSpawned(uint32 CharacterId)
+{
+    if (!Conn)
+    {
+        UE_LOG(LogTemp, Error, TEXT("SpacetimeDB connection is null"));
+        return;
+    }
+
+	Conn->CallReducerTyped(TEXT("player_spawned"), FPlayerSpawnedArgs(CharacterId), SetCallReducerFlags);
+}
+
+bool URemoteReducers::InvokePlayerSpawned(const FReducerEventContext& Context, const UPlayerSpawnedReducer* Args)
+{
+    if (!OnPlayerSpawned.IsBound())
+    {
+        // Handle unhandled reducer error
+        if (InternalOnUnhandledReducerError.IsBound())
+        {
+            // TODO: Check Context.Event.Status for Failed/OutOfEnergy cases
+            // For now, just broadcast any error
+            InternalOnUnhandledReducerError.Broadcast(Context, TEXT("No handler registered for PlayerSpawned"));
+        }
+        return false;
+    }
+
+    OnPlayerSpawned.Broadcast(Context);
+    return true;
+}
+
 void URemoteReducers::Respawn()
 {
     if (!Conn)
@@ -389,6 +418,14 @@ void UDbConnection::ReducerEvent(const FReducerEvent& Event)
         UMoveAllPlayersReducer* Reducer = NewObject<UMoveAllPlayersReducer>();
         Reducer->Timer = Args.Timer;
         Reducers->InvokeMoveAllPlayers(Context, Reducer);
+        return;
+    }
+    if (ReducerName == TEXT("player_spawned"))
+    {
+        FPlayerSpawnedArgs Args = ReducerEvent.Reducer.GetAsPlayerSpawned();
+        UPlayerSpawnedReducer* Reducer = NewObject<UPlayerSpawnedReducer>();
+        Reducer->CharacterId = Args.CharacterId;
+        Reducers->InvokePlayerSpawned(Context, Reducer);
         return;
     }
     if (ReducerName == TEXT("respawn"))

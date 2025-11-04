@@ -17,6 +17,7 @@
 #include "ModuleBindings/Reducers/Disconnect.g.h"
 #include "ModuleBindings/Reducers/EnterGame.g.h"
 #include "ModuleBindings/Reducers/MoveAllPlayers.g.h"
+#include "ModuleBindings/Reducers/PlayerSpawned.g.h"
 #include "ModuleBindings/Reducers/Respawn.g.h"
 #include "ModuleBindings/Reducers/UpdatePlayerInput.g.h"
 #include "ModuleBindings/Types/MoveAllPlayersTimerType.g.h"
@@ -112,6 +113,7 @@ enum class EReducerTag : uint8
     Disconnect,
     EnterGame,
     MoveAllPlayers,
+    PlayerSpawned,
     Respawn,
     UpdatePlayerInput
 };
@@ -125,7 +127,7 @@ public:
     UPROPERTY(BlueprintReadOnly, Category = "SpacetimeDB")
     EReducerTag Tag = static_cast<EReducerTag>(0);
 
-    TVariant<FConnectArgs, FDisconnectArgs, FEnterGameArgs, FMoveAllPlayersArgs, FRespawnArgs, FUpdatePlayerInputArgs> Data;
+    TVariant<FConnectArgs, FDisconnectArgs, FEnterGameArgs, FMoveAllPlayersArgs, FPlayerSpawnedArgs, FRespawnArgs, FUpdatePlayerInputArgs> Data;
 
     // Optional metadata
     UPROPERTY(BlueprintReadOnly, Category = "SpacetimeDB")
@@ -195,6 +197,22 @@ public:
     {
         ensureMsgf(IsMoveAllPlayers(), TEXT("Reducer does not hold MoveAllPlayers!"));
         return Data.Get<FMoveAllPlayersArgs>();
+    }
+
+    static FReducer PlayerSpawned(const FPlayerSpawnedArgs& Value)
+    {
+        FReducer Out;
+        Out.Tag = EReducerTag::PlayerSpawned;
+        Out.Data.Set<FPlayerSpawnedArgs>(Value);
+        Out.ReducerName = TEXT("player_spawned");
+        return Out;
+    }
+
+    FORCEINLINE bool IsPlayerSpawned() const { return Tag == EReducerTag::PlayerSpawned; }
+    FORCEINLINE FPlayerSpawnedArgs GetAsPlayerSpawned() const
+    {
+        ensureMsgf(IsPlayerSpawned(), TEXT("Reducer does not hold PlayerSpawned!"));
+        return Data.Get<FPlayerSpawnedArgs>();
     }
 
     static FReducer Respawn(const FRespawnArgs& Value)
@@ -767,6 +785,18 @@ public:
     void MoveAllPlayers(const FMoveAllPlayersTimerType& Timer);
 
     bool InvokeMoveAllPlayers(const FReducerEventContext& Context, const UMoveAllPlayersReducer* Args);
+
+    DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(
+        FPlayerSpawnedHandler,
+        const FReducerEventContext&, Context
+    );
+    UPROPERTY(BlueprintAssignable, Category="SpacetimeDB")
+    FPlayerSpawnedHandler OnPlayerSpawned;
+
+    UFUNCTION(BlueprintCallable, Category="SpacetimeDB")
+    void PlayerSpawned(uint32 CharacterId);
+
+    bool InvokePlayerSpawned(const FReducerEventContext& Context, const UPlayerSpawnedReducer* Args);
 
     DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(
         FRespawnHandler,
