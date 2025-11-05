@@ -2,6 +2,12 @@
 #include "Connection/Credentials.h"
 #include "Containers/Ticker.h"
 #include "ModuleBindings/SpacetimeDBClient.g.h"
+#include "ModuleBindings/Tables/PlayerTable.g.h"
+#include "ModuleBindings/Tables/PlayerCharacterTable.g.h"
+#include "ModuleBindings/Tables/EntityTable.g.h"
+#include "ModuleBindings/Types/PlayerType.g.h"
+#include "ModuleBindings/Types/PlayerCharacterType.g.h"
+#include "ModuleBindings/Types/EntityType.g.h"
 
 UStDbConnectSubsystem::UStDbConnectSubsystem()
 	: Conn(nullptr)
@@ -91,6 +97,23 @@ void UStDbConnectSubsystem::HandleConnect(UDbConnection* InConn, FSpacetimeDBIde
 	UCredentials::SaveToken(Token);
 	LocalIdentity = Identity;
 
+	// Register event delegates for reactive table updates (Blackholio pattern)
+	if (Conn && Conn->Db)
+	{
+		// Players table events - for local player name caching
+		Conn->Db->Players->OnInsert.AddDynamic(this, &UStDbConnectSubsystem::OnPlayerInsert);
+		Conn->Db->Players->OnUpdate.AddDynamic(this, &UStDbConnectSubsystem::OnPlayerUpdate);
+
+		// PlayerCharacters table events - for character lifecycle
+		Conn->Db->PlayerCharacters->OnInsert.AddDynamic(this, &UStDbConnectSubsystem::OnPlayerCharacterInsert);
+		Conn->Db->PlayerCharacters->OnUpdate.AddDynamic(this, &UStDbConnectSubsystem::OnPlayerCharacterUpdate);
+		Conn->Db->PlayerCharacters->OnDelete.AddDynamic(this, &UStDbConnectSubsystem::OnPlayerCharacterDelete);
+
+		// Entity table events - optional minimal logging
+		Conn->Db->Entity->OnUpdate.AddDynamic(this, &UStDbConnectSubsystem::OnEntityUpdate);
+		Conn->Db->Entity->OnDelete.AddDynamic(this, &UStDbConnectSubsystem::OnEntityDelete);
+	}
+
 	FOnSubscriptionApplied AppliedDelegate;
 	BIND_DELEGATE_SAFE(AppliedDelegate, this, UStDbConnectSubsystem, HandleSubscriptionApplied);
 
@@ -126,50 +149,49 @@ void UStDbConnectSubsystem::HandleSubscriptionApplied(FSubscriptionEventContext&
 		return;
 	}
 
-	// Find our player in the Players table by matching LocalIdentity
-	uint32 LocalPlayerId = 0;
-	bool bFoundPlayer = false;
+	// EFFICIENT: Use Identity index for O(1) lookup instead of O(n) row iteration
+	FPlayerType Player = Context.Db->Players->Identity->Find(LocalIdentity);
 	
-	for (const auto& Player : Conn->Db->Players->Rows)
+	if (Player.PlayerId == 0)
 	{
-		if (Player.Identity == LocalIdentity)
-		{
-			LocalPlayerId = Player.PlayerId;
-			bFoundPlayer = true;
-			UE_LOG(LogTemp, Log, TEXT("Found local player with PlayerId: %d"), LocalPlayerId);
-			break;
-		}
+		UE_LOG(LogTemp, Warning, TEXT("Local player not found in Players table yet"));
+		return;
+	}
+	
+	UE_LOG(LogTemp, Log, TEXT("Found local player with PlayerId: %d"), Player.PlayerId);
+
+	// Cache the local player display name if available
+	if (!Player.DisplayName.IsEmpty() && Player.DisplayName != LocalPlayerDisplayName)
+	{
+		LocalPlayerDisplayName = Player.DisplayName;
+		OnPlayerDisplayNameChanged.Broadcast(LocalPlayerDisplayName);
+		UE_LOG(LogTemp, Log, TEXT("Local player display name set to: %s"), *LocalPlayerDisplayName);
 	}
 
-	if (!bFoundPlayer)
+	// EFFICIENT: Use PlayerId index to filter characters for this player
+	TArray<FPlayerCharacterType> Characters = Context.Db->PlayerCharacters->PlayerId->Filter(Player.PlayerId);
+	
+	UE_LOG(LogTemp, Log, TEXT("Found %d PlayerCharacter(s) for local player"), Characters.Num());
+	
+	if (Characters.Num() == 0)
 	{
-		UE_LOG(LogTemp, Warning, TEXT("Local player not found in Players table"));
+		UE_LOG(LogTemp, Log, TEXT("No character found for player - will be created by server"));
 		return;
 	}
 
-	// Find player_characters for this player
-	for (const auto& PlayerChar : Conn->Db->PlayerCharacters->Rows)
+	// Check if any character needs spawn
+	int32 NeedsSpawnCount = 0;
+	for (const FPlayerCharacterType& Character : Characters)
 	{
-		if (PlayerChar.PlayerId == LocalPlayerId)
+		if (Character.NeedsSpawn)
 		{
-			UE_LOG(LogTemp, Log, TEXT("Found PlayerCharacter: CharacterId=%d, NeedsSpawn=%d"), 
-				PlayerChar.CharacterId, PlayerChar.NeedsSpawn);
-			
-			// Check if this character needs to spawn
-			if (PlayerChar.NeedsSpawn)
-			{
-				UE_LOG(LogTemp, Log, TEXT("Character needs spawn. Loading world and spawning pawn..."));
-				// TODO: Implement world loading and pawn spawning
-				// For now, we'll just log that we detected the need to spawn
-				// The actual implementation will require:
-				// 1. Load level Lvl_World
-				// 2. Spawn pawn at PlayerChar.Transform
-				// 3. Possess the pawn
-				// 4. Call Conn->Reducers->PlayerSpawned(PlayerChar.CharacterId)
-			}
-			
-			break; // Found our character, no need to continue
+			NeedsSpawnCount++;
 		}
+	}
+
+	if (NeedsSpawnCount > 0)
+	{
+		UE_LOG(LogTemp, Log, TEXT("%d character(s) need spawn - spawn logic will be implemented in future PR"), NeedsSpawnCount);
 	}
 }
 
@@ -202,4 +224,64 @@ bool UStDbConnectSubsystem::OnTick(float DeltaSeconds)
 {
 	Tick(DeltaSeconds);
 	return true;
+}
+
+// Event Handlers for Players table
+void UStDbConnectSubsystem::OnPlayerInsert(const FEventContext& Context, const FPlayerType& NewRow)
+{
+	UE_LOG(LogTemp, Log, TEXT("Player inserted: PlayerId=%d, DisplayName=%s"), NewRow.PlayerId, *NewRow.DisplayName);
+	
+	// If this is the local player, cache the display name
+	if (NewRow.Identity == LocalIdentity)
+	{
+		if (!NewRow.DisplayName.IsEmpty() && NewRow.DisplayName != LocalPlayerDisplayName)
+		{
+			LocalPlayerDisplayName = NewRow.DisplayName;
+			OnPlayerDisplayNameChanged.Broadcast(LocalPlayerDisplayName);
+			UE_LOG(LogTemp, Log, TEXT("Local player display name cached: %s"), *LocalPlayerDisplayName);
+		}
+	}
+}
+
+void UStDbConnectSubsystem::OnPlayerUpdate(const FEventContext& Context, const FPlayerType& OldRow, const FPlayerType& NewRow)
+{
+	UE_LOG(LogTemp, Log, TEXT("Player updated: PlayerId=%d, DisplayName=%s"), NewRow.PlayerId, *NewRow.DisplayName);
+	
+	// If this is the local player and display name changed, update cache
+	if (NewRow.Identity == LocalIdentity)
+	{
+		if (!NewRow.DisplayName.IsEmpty() && NewRow.DisplayName != LocalPlayerDisplayName)
+		{
+			LocalPlayerDisplayName = NewRow.DisplayName;
+			OnPlayerDisplayNameChanged.Broadcast(LocalPlayerDisplayName);
+			UE_LOG(LogTemp, Log, TEXT("Local player display name updated to: %s"), *LocalPlayerDisplayName);
+		}
+	}
+}
+
+// Event Handlers for PlayerCharacters table
+void UStDbConnectSubsystem::OnPlayerCharacterInsert(const FEventContext& Context, const FPlayerCharacterType& NewRow)
+{
+	UE_LOG(LogTemp, Log, TEXT("PlayerCharacter inserted: CharacterId=%d, PlayerId=%d, NeedsSpawn=%d"), NewRow.CharacterId, NewRow.PlayerId, NewRow.NeedsSpawn);
+}
+
+void UStDbConnectSubsystem::OnPlayerCharacterUpdate(const FEventContext& Context, const FPlayerCharacterType& OldRow, const FPlayerCharacterType& NewRow)
+{
+	UE_LOG(LogTemp, Log, TEXT("PlayerCharacter updated: CharacterId=%d, PlayerId=%d"), NewRow.CharacterId, NewRow.PlayerId);
+}
+
+void UStDbConnectSubsystem::OnPlayerCharacterDelete(const FEventContext& Context, const FPlayerCharacterType& RemovedRow)
+{
+	UE_LOG(LogTemp, Log, TEXT("PlayerCharacter deleted: CharacterId=%d"), RemovedRow.CharacterId);
+}
+
+// Event Handlers for Entity table (optional minimal logging)
+void UStDbConnectSubsystem::OnEntityUpdate(const FEventContext& Context, const FEntityType& OldRow, const FEntityType& NewRow)
+{
+	UE_LOG(LogTemp, Verbose, TEXT("Entity updated: EntityId=%d"), NewRow.EntityId);
+}
+
+void UStDbConnectSubsystem::OnEntityDelete(const FEventContext& Context, const FEntityType& RemovedRow)
+{
+	UE_LOG(LogTemp, Verbose, TEXT("Entity deleted: EntityId=%d"), RemovedRow.EntityId);
 }
