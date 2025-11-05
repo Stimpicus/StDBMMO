@@ -8,6 +8,10 @@
 class UDbConnection;
 class UDbConnectionBuilder;
 struct FSubscriptionEventContext;
+struct FEventContext;
+struct FPlayerType;
+struct FPlayerCharacterType;
+struct FEntityType;
 
 UCLASS()
 class CLIENT_UNREAL_API UStDbConnectSubsystem : public UGameInstanceSubsystem
@@ -50,6 +54,19 @@ public:
 	UPROPERTY(BlueprintReadOnly, Category = "MMORPG|Connection")
 	UDbConnection* Conn = nullptr;
 
+	// Local player display name cached from Players table
+	UPROPERTY(BlueprintReadOnly, Category = "MMORPG|Player")
+	FString LocalPlayerDisplayName;
+
+	// Delegate fired when local player display name changes
+	DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FOnPlayerDisplayNameChanged, const FString&, NewDisplayName);
+
+	UPROPERTY(BlueprintAssignable, Category = "MMORPG|Player")
+	FOnPlayerDisplayNameChanged OnPlayerDisplayNameChanged;
+
+	UFUNCTION(BlueprintPure, Category = "MMORPG|Player")
+	FString GetLocalPlayerDisplayName() const { return LocalPlayerDisplayName; }
+
 private:
 	UFUNCTION()
 	void HandleConnect(UDbConnection* InConn, FSpacetimeDBIdentity Identity, const FString& Token);
@@ -62,6 +79,30 @@ private:
 
 	UFUNCTION()
 	void HandleSubscriptionApplied(FSubscriptionEventContext& Context);
+
+	// Event handlers for Players table
+	UFUNCTION()
+	void OnPlayerInsert(const FEventContext& Context, const FPlayerType& NewRow);
+
+	UFUNCTION()
+	void OnPlayerUpdate(const FEventContext& Context, const FPlayerType& OldRow, const FPlayerType& NewRow);
+
+	// Event handlers for PlayerCharacters table
+	UFUNCTION()
+	void OnPlayerCharacterInsert(const FEventContext& Context, const FPlayerCharacterType& NewRow);
+
+	UFUNCTION()
+	void OnPlayerCharacterUpdate(const FEventContext& Context, const FPlayerCharacterType& OldRow, const FPlayerCharacterType& NewRow);
+
+	UFUNCTION()
+	void OnPlayerCharacterDelete(const FEventContext& Context, const FPlayerCharacterType& RemovedRow);
+
+	// Event handlers for Entity table (optional, minimal logging)
+	UFUNCTION()
+	void OnEntityUpdate(const FEventContext& Context, const FEntityType& OldRow, const FEntityType& NewRow);
+
+	UFUNCTION()
+	void OnEntityDelete(const FEventContext& Context, const FEntityType& RemovedRow);
 
 	// internal helper used by StartConnection
 	void BuildAndStartConnection();
